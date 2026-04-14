@@ -1,117 +1,38 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
-// Dot-grid world map — each pair is [col, row] in a 72×36 grid
-// These are real land-mass coordinates derived from mercator projection
-const LAND_DOTS: [number, number][] = [
-  // North America
-  [6,8],[7,8],[8,8],[9,8],[10,8],[11,8],
-  [6,9],[7,9],[8,9],[9,9],[10,9],[11,9],[12,9],[13,9],
-  [5,10],[6,10],[7,10],[8,10],[9,10],[10,10],[11,10],[12,10],[13,10],[14,10],
-  [5,11],[6,11],[7,11],[8,11],[9,11],[10,11],[11,11],[12,11],[13,11],[14,11],[15,11],
-  [6,12],[7,12],[8,12],[9,12],[10,12],[11,12],[12,12],[13,12],[14,12],
-  [7,13],[8,13],[9,13],[10,13],[11,13],[12,13],[13,13],
-  [8,14],[9,14],[10,14],[11,14],[12,14],
-  [9,15],[10,15],[11,15],
-  // Greenland
-  [14,5],[15,5],[16,5],[14,6],[15,6],[16,6],[15,7],
-  // Central America
-  [10,16],[11,16],[10,17],
-  // Caribbean
-  [13,15],[14,15],[15,15],
-  // South America
-  [13,17],[14,17],[15,17],[16,17],
-  [12,18],[13,18],[14,18],[15,18],[16,18],[17,18],
-  [12,19],[13,19],[14,19],[15,19],[16,19],[17,19],
-  [12,20],[13,20],[14,20],[15,20],[16,20],[17,20],
-  [13,21],[14,21],[15,21],[16,21],[17,21],
-  [13,22],[14,22],[15,22],[16,22],
-  [13,23],[14,23],[15,23],
-  [14,24],[15,24],
-  [14,25],[15,25],
-  // UK / Ireland
-  [34,9],[35,9],[34,10],[35,10],
-  // Europe
-  [36,9],[37,9],[38,9],[39,9],[40,9],[41,9],
-  [35,10],[36,10],[37,10],[38,10],[39,10],[40,10],[41,10],[42,10],[43,10],
-  [35,11],[36,11],[37,11],[38,11],[39,11],[40,11],[41,11],[42,11],[43,11],[44,11],
-  [36,12],[37,12],[38,12],[39,12],[40,12],[41,12],[42,12],[43,12],[44,12],[45,12],
-  [37,13],[38,13],[39,13],[40,13],[41,13],[42,13],[43,13],[44,13],
-  [38,14],[39,14],[40,14],[41,14],[42,14],[43,14],
-  // Scandinavia
-  [38,7],[39,7],[40,7],[41,7],[42,7],
-  [38,8],[39,8],[40,8],[41,8],[42,8],[43,8],
-  // Africa
-  [36,15],[37,15],[38,15],[39,15],[40,15],[41,15],[42,15],[43,15],
-  [35,16],[36,16],[37,16],[38,16],[39,16],[40,16],[41,16],[42,16],[43,16],[44,16],
-  [35,17],[36,17],[37,17],[38,17],[39,17],[40,17],[41,17],[42,17],[43,17],[44,17],
-  [35,18],[36,18],[37,18],[38,18],[39,18],[40,18],[41,18],[42,18],[43,18],[44,18],
-  [35,19],[36,19],[37,19],[38,19],[39,19],[40,19],[41,19],[42,19],[43,19],
-  [36,20],[37,20],[38,20],[39,20],[40,20],[41,20],[42,20],[43,20],
-  [37,21],[38,21],[39,21],[40,21],[41,21],[42,21],
-  [38,22],[39,22],[40,22],[41,22],
-  [39,23],[40,23],
-  // Middle East
-  [44,13],[45,13],[46,13],[47,13],
-  [44,14],[45,14],[46,14],[47,14],[48,14],
-  [44,15],[45,15],[46,15],[47,15],[48,15],
-  // Russia / Central Asia
-  [43,8],[44,8],[45,8],[46,8],[47,8],[48,8],[49,8],[50,8],[51,8],[52,8],[53,8],[54,8],[55,8],[56,8],
-  [43,9],[44,9],[45,9],[46,9],[47,9],[48,9],[49,9],[50,9],[51,9],[52,9],[53,9],[54,9],[55,9],[56,9],[57,9],
-  [44,10],[45,10],[46,10],[47,10],[48,10],[49,10],[50,10],[51,10],[52,10],[53,10],[54,10],[55,10],[56,10],
-  [45,11],[46,11],[47,11],[48,11],[49,11],[50,11],[51,11],[52,11],[53,11],[54,11],
-  [46,12],[47,12],[48,12],[49,12],[50,12],[51,12],[52,12],[53,12],
-  // India
-  [48,14],[49,14],[50,14],
-  [47,15],[48,15],[49,15],[50,15],
-  [48,16],[49,16],[50,16],
-  [48,17],[49,17],
-  [49,18],
-  // South / SE Asia
-  [51,13],[52,13],[53,13],[54,13],[55,13],[56,13],
-  [51,14],[52,14],[53,14],[54,14],[55,14],[56,14],[57,14],[58,14],
-  [52,15],[53,15],[54,15],[55,15],[56,15],[57,15],[58,15],[59,15],
-  [54,16],[55,16],[56,16],[57,16],[58,16],[59,16],[60,16],[61,16],
-  // China / Japan
-  [50,11],[51,11],[52,11],[53,11],[54,11],[55,11],[56,11],[57,11],[58,11],[59,11],[60,11],
-  [50,12],[51,12],[52,12],[53,12],[54,12],[55,12],[56,12],[57,12],[58,12],[59,12],[60,12],[61,12],
-  [59,10],[60,10],[61,10],[62,10],[63,10],[64,10],
-  [62,11],[63,11],[64,11],[65,11],
-  [62,12],[63,12],[64,12],
-  // Australia
-  [57,22],[58,22],[59,22],[60,22],[61,22],[62,22],
-  [57,23],[58,23],[59,23],[60,23],[61,23],[62,23],[63,23],
-  [57,24],[58,24],[59,24],[60,24],[61,24],[62,24],
-  [58,25],[59,25],[60,25],[61,25],
-  // New Zealand
-  [65,25],[65,26],[66,26],
-];
-
-// Active depot / operation cities — [col, row, label, pulse duration]
+// Active depot / operation cities — [longitude, latitude, label, pulse duration]
 const ACTIVE_NODES: [number, number, string, string][] = [
-  [9, 11, "Philadelphia", "3.5s"],   // Pennsylvania HQ
-  [8, 10, "Chicago", "4s"],
-  [5, 11, "San Francisco", "5s"],
-  [36, 10, "London", "3s"],
-  [38, 10, "Frankfurt", "4.5s"],
-  [40, 10, "Warsaw", "5s"],
-  [44, 13, "Dubai", "4s"],
-  [56, 12, "Shanghai", "3.5s"],
-  [63, 11, "Tokyo", "4s"],
-  [48, 15, "Mumbai", "5s"],
-  [59, 23, "Sydney", "4.5s"],
-  [13, 18, "São Paulo", "3.5s"],
-  [37, 16, "Nairobi", "5s"],
+  [-75.2, 40.0, "Philadelphia", "3.5s"],
+  [-87.6, 41.9, "Chicago", "4s"],
+  [-122.4, 37.8, "San Francisco", "5s"],
+  [-0.1, 51.5, "London", "3s"],
+  [8.7, 50.1, "Frankfurt", "4.5s"],
+  [21.0, 52.2, "Warsaw", "5s"],
+  [55.3, 25.3, "Dubai", "4s"],
+  [121.5, 31.2, "Shanghai", "3.5s"],
+  [139.7, 35.7, "Tokyo", "4s"],
+  [72.9, 19.1, "Mumbai", "5s"],
+  [151.2, -33.9, "Sydney", "4.5s"],
+  [-46.6, -23.5, "São Paulo", "3.5s"],
+  [36.8, -1.3, "Nairobi", "5s"],
 ];
 
-const COLS = 72;
-const ROWS = 36;
-const DOT_R = 1.4;
-const SPACING = 8;
-const W = COLS * SPACING;
-const H = ROWS * SPACING;
+// Supply lane connections between nodes (indices)
+const SUPPLY_LANES = [
+  [0, 1], [1, 2], [0, 3], [3, 4], [4, 5],
+  [3, 6], [6, 9], [9, 7], [7, 8], [7, 10],
+  [0, 11], [3, 12],
+];
 
-const landSet = new Set(LAND_DOTS.map(([c, r]) => `${c},${r}`));
+// Convert geo coords to mercator x,y on our canvas
+function geoToXY(lon: number, lat: number, w: number, h: number): [number, number] {
+  const x = ((lon + 180) / 360) * w;
+  const latRad = (lat * Math.PI) / 180;
+  const mercN = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+  const y = h / 2 - (mercN / Math.PI) * (h / 2) * 0.77;
+  return [x, y];
+}
 
 const regions = [
   { name: "North America", detail: "US, Canada, Mexico — primary depot hub" },
@@ -128,6 +49,252 @@ const capabilities = [
   { label: "Phase I–III", desc: "Full lifecycle global supply support" },
   { label: "GCP", desc: "Compliant across all major regulatories" },
 ];
+
+function DotMap() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState({ w: 800, h: 400 });
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const W = dims.w;
+    const H = dims.h;
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    const SPACING = Math.max(6, Math.floor(W / 120));
+    const cols = Math.floor(W / SPACING);
+    const rows = Math.floor(H / SPACING);
+
+    // We'll draw a dot-grid by testing each point against a world-map image
+    // rendered into an offscreen canvas. Use a simplified path-based approach.
+    const offscreen = document.createElement("canvas");
+    offscreen.width = W;
+    offscreen.height = H;
+    const offCtx = offscreen.getContext("2d");
+    if (!offCtx) return;
+
+    // Draw simplified world continents as filled paths
+    offCtx.fillStyle = "#fff";
+    offCtx.beginPath();
+
+    // Helper to convert geo to canvas coords
+    const g = (lon: number, lat: number): [number, number] => geoToXY(lon, lat, W, H);
+
+    // North America
+    const naPoints: [number, number][] = [
+      [-170,65],[-168,68],[-162,70],[-152,72],[-140,72],[-130,72],[-120,73],[-105,72],
+      [-95,72],[-85,70],[-80,68],[-75,65],[-65,62],[-55,58],[-55,52],[-60,47],
+      [-65,44],[-70,42],[-75,40],[-80,38],[-82,30],[-85,29],[-90,29],[-95,28],
+      [-98,26],[-100,22],[-105,20],[-108,24],[-115,30],[-118,34],[-122,37],
+      [-124,42],[-124,48],[-130,55],[-140,60],[-150,60],[-160,58],[-168,62],[-170,65]
+    ];
+    offCtx.moveTo(...g(...naPoints[0]));
+    naPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // Greenland
+    const glPoints: [number, number][] = [
+      [-55,82],[-40,84],[-20,82],[-15,78],[-18,75],[-22,72],[-35,68],
+      [-45,68],[-50,72],[-55,76],[-55,82]
+    ];
+    offCtx.moveTo(...g(...glPoints[0]));
+    glPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // South America
+    const saPoints: [number, number][] = [
+      [-80,10],[-75,12],[-68,12],[-62,10],[-52,5],[-48,0],[-45,-5],[-40,-10],
+      [-38,-15],[-36,-20],[-40,-24],[-48,-28],[-53,-32],[-58,-38],[-65,-42],
+      [-68,-52],[-72,-50],[-75,-45],[-72,-38],[-70,-30],[-72,-20],[-75,-12],
+      [-78,-2],[-80,5],[-80,10]
+    ];
+    offCtx.moveTo(...g(...saPoints[0]));
+    saPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // Europe
+    const euPoints: [number, number][] = [
+      [-10,72],[-5,62],[0,58],[5,52],[0,48],[-5,44],[-5,38],[0,36],
+      [5,38],[10,38],[15,40],[20,38],[25,36],[28,38],[30,42],[28,45],
+      [25,48],[20,50],[18,54],[20,56],[22,58],[28,60],[30,62],[35,65],
+      [40,68],[35,70],[25,72],[15,72],[5,72],[-10,72]
+    ];
+    offCtx.moveTo(...g(...euPoints[0]));
+    euPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // Africa
+    const afPoints: [number, number][] = [
+      [-15,36],[-5,36],[5,36],[10,34],[15,32],[25,32],[32,30],[35,28],
+      [42,12],[50,12],[52,5],[48,0],[42,-5],[40,-12],[35,-20],[32,-28],
+      [28,-32],[25,-34],[20,-35],[15,-30],[12,-22],[8,-5],[5,0],[2,5],
+      [-5,12],[-8,10],[-12,12],[-15,15],[-18,20],[-15,28],[-15,36]
+    ];
+    offCtx.moveTo(...g(...afPoints[0]));
+    afPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // Asia / Russia
+    const asPoints: [number, number][] = [
+      [30,72],[40,72],[50,72],[60,72],[70,72],[80,72],[90,72],[100,72],
+      [110,72],[120,72],[130,70],[140,68],[150,65],[160,62],[170,65],
+      [175,60],[170,55],[140,48],[135,45],[130,42],[128,38],[130,32],
+      [125,25],[120,22],[115,18],[110,15],[108,8],[105,2],[100,-5],[98,0],
+      [95,8],[88,22],[80,28],[75,25],[72,20],[68,25],[62,25],[55,26],
+      [50,28],[45,30],[42,32],[40,38],[38,40],[35,42],[32,45],[30,48],
+      [28,55],[30,60],[30,65],[30,72]
+    ];
+    offCtx.moveTo(...g(...asPoints[0]));
+    asPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // India
+    const inPoints: [number, number][] = [
+      [68,28],[72,32],[75,28],[78,22],[80,18],[82,15],[80,8],[78,8],
+      [75,10],[72,15],[68,20],[68,28]
+    ];
+    offCtx.moveTo(...g(...inPoints[0]));
+    inPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // Japan
+    const jpPoints: [number, number][] = [
+      [130,34],[132,35],[135,36],[138,38],[140,40],[142,42],[145,45],
+      [144,43],[141,40],[139,38],[137,35],[135,33],[132,32],[130,34]
+    ];
+    offCtx.moveTo(...g(...jpPoints[0]));
+    jpPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // SE Asia / Indonesia
+    const seaPoints: [number, number][] = [
+      [100,8],[102,5],[105,2],[108,0],[110,-2],[115,-5],[120,-6],
+      [125,-8],[130,-5],[128,0],[125,2],[120,5],[115,8],[110,10],
+      [105,8],[100,8]
+    ];
+    offCtx.moveTo(...g(...seaPoints[0]));
+    seaPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // Australia
+    const auPoints: [number, number][] = [
+      [115,-15],[120,-14],[125,-14],[130,-12],[135,-13],[140,-16],
+      [145,-18],[150,-22],[153,-25],[152,-30],[150,-35],[148,-38],
+      [145,-40],[140,-38],[135,-35],[130,-32],[125,-34],[120,-34],
+      [118,-32],[116,-30],[114,-26],[114,-22],[115,-18],[115,-15]
+    ];
+    offCtx.moveTo(...g(...auPoints[0]));
+    auPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    // UK
+    const ukPoints: [number, number][] = [
+      [-5,58],[-3,58],[-1,56],[0,52],[-2,50],[-5,50],[-6,52],[-6,55],[-5,58]
+    ];
+    offCtx.moveTo(...g(...ukPoints[0]));
+    ukPoints.slice(1).forEach(p => offCtx.lineTo(...g(...p)));
+    offCtx.closePath();
+
+    offCtx.fill();
+
+    // Now read pixel data to determine which dots are land
+    const imgData = offCtx.getImageData(0, 0, W, H);
+    const isLand = (px: number, py: number): boolean => {
+      const ix = Math.round(px);
+      const iy = Math.round(py);
+      if (ix < 0 || ix >= W || iy < 0 || iy >= H) return false;
+      return imgData.data[(iy * W + ix) * 4 + 0] > 128;
+    };
+
+    // Draw dots
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const cx = col * SPACING + SPACING / 2;
+        const cy = row * SPACING + SPACING / 2;
+        const land = isLand(cx, cy);
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, land ? SPACING * 0.18 : SPACING * 0.1, 0, Math.PI * 2);
+        ctx.fillStyle = land ? "rgba(56, 189, 248, 0.55)" : "rgba(30, 58, 82, 0.6)";
+        ctx.fill();
+      }
+    }
+
+    // Draw supply lanes
+    SUPPLY_LANES.forEach(([ai, bi]) => {
+      const a = ACTIVE_NODES[ai];
+      const b = ACTIVE_NODES[bi];
+      const [x1, y1] = geoToXY(a[0], a[1], W, H);
+      const [x2, y2] = geoToXY(b[0], b[1], W, H);
+      ctx.beginPath();
+      ctx.setLineDash([4, 5]);
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.2)";
+      ctx.lineWidth = 1;
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
+    // Draw active nodes
+    ACTIVE_NODES.forEach(([lon, lat]) => {
+      const [x, y] = geoToXY(lon, lat, W, H);
+      // Outer glow
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, SPACING * 1.5);
+      grad.addColorStop(0, "rgba(56, 189, 248, 0.35)");
+      grad.addColorStop(1, "rgba(56, 189, 248, 0)");
+      ctx.beginPath();
+      ctx.arc(x, y, SPACING * 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      // Core
+      ctx.beginPath();
+      ctx.arc(x, y, SPACING * 0.42, 0, Math.PI * 2);
+      ctx.fillStyle = "#38bdf8";
+      ctx.fill();
+      // White center
+      ctx.beginPath();
+      ctx.arc(x, y, SPACING * 0.18, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fill();
+    });
+  }, [dims]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        const w = Math.floor(e.contentRect.width);
+        const h = Math.max(260, Math.floor(w * 0.48));
+        setDims({ w, h });
+      }
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    draw();
+  }, [draw]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <canvas ref={canvasRef} className="w-full block"/>
+    </div>
+  );
+}
 
 export default function GlobalReach() {
   const ref = useRef<HTMLDivElement>(null);
@@ -176,94 +343,11 @@ export default function GlobalReach() {
             </div>
           </div>
 
-          {/* ── Dot-grid world map ── */}
+          {/* Dot-grid world map (canvas rendered) */}
           <div className="relative rounded-2xl border border-black/[0.07] bg-[#0c1f35] overflow-hidden mb-8">
-            <div className="absolute inset-0 opacity-[0.04]"
-              style={{
-                backgroundImage: `linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)`,
-                backgroundSize: "32px 32px",
-              }}/>
-
-            <div className="overflow-x-auto">
-              <svg
-                viewBox={`0 0 ${W} ${H}`}
-                width="100%"
-                style={{ minWidth: "560px", display: "block" }}
-                fill="none"
-              >
-                {/* Ocean dots */}
-                {Array.from({ length: ROWS }, (_, r) =>
-                  Array.from({ length: COLS }, (_, c) => {
-                    const isLand = landSet.has(`${c},${r}`);
-                    if (isLand) return null;
-                    return (
-                      <circle
-                        key={`o-${c}-${r}`}
-                        cx={c * SPACING + SPACING / 2}
-                        cy={r * SPACING + SPACING / 2}
-                        r={DOT_R * 0.6}
-                        fill="#1e3a52"
-                      />
-                    );
-                  })
-                )}
-
-                {/* Land dots */}
-                {LAND_DOTS.map(([c, r]) => (
-                  <circle
-                    key={`l-${c}-${r}`}
-                    cx={c * SPACING + SPACING / 2}
-                    cy={r * SPACING + SPACING / 2}
-                    r={DOT_R}
-                    fill="#2d6a9f"
-                    opacity="0.7"
-                  />
-                ))}
-
-                {/* Active depot nodes */}
-                {ACTIVE_NODES.map(([c, r, , dur], i) => {
-                  const cx = c * SPACING + SPACING / 2;
-                  const cy = r * SPACING + SPACING / 2;
-                  return (
-                    <g key={`n-${i}`}>
-                      {/* Pulse ring */}
-                      <circle cx={cx} cy={cy} r="6" fill="none" stroke="#38bdf8" strokeWidth="1" opacity="0.5">
-                        <animate attributeName="r" values="4;10;4" dur={dur} repeatCount="indefinite"/>
-                        <animate attributeName="opacity" values="0.5;0;0.5" dur={dur} repeatCount="indefinite"/>
-                      </circle>
-                      {/* Core dot */}
-                      <circle cx={cx} cy={cy} r="3.5" fill="#38bdf8">
-                        <animate attributeName="opacity" values="0.7;1;0.7" dur={dur} repeatCount="indefinite"/>
-                      </circle>
-                      <circle cx={cx} cy={cy} r="1.5" fill="white" opacity="0.9"/>
-                    </g>
-                  );
-                })}
-
-                {/* Connection lines between key hubs */}
-                {([
-                  [ACTIVE_NODES[0], ACTIVE_NODES[1]],
-                  [ACTIVE_NODES[1], ACTIVE_NODES[2]],
-                  [ACTIVE_NODES[0], ACTIVE_NODES[3]],
-                  [ACTIVE_NODES[3], ACTIVE_NODES[4]],
-                  [ACTIVE_NODES[3], ACTIVE_NODES[5]],
-                  [ACTIVE_NODES[4], ACTIVE_NODES[7]],
-                  [ACTIVE_NODES[7], ACTIVE_NODES[8]],
-                ] as [[number,number,string,string],[number,number,string,string]][]).map(([a, b], i) => {
-                  const x1 = a[0] * SPACING + SPACING / 2;
-                  const y1 = a[1] * SPACING + SPACING / 2;
-                  const x2 = b[0] * SPACING + SPACING / 2;
-                  const y2 = b[1] * SPACING + SPACING / 2;
-                  return (
-                    <line key={`line-${i}`} x1={x1} y1={y1} x2={x2} y2={y2}
-                      stroke="#38bdf8" strokeWidth="0.6" strokeDasharray="4 4" opacity="0.25">
-                      <animate attributeName="stroke-dashoffset" from="0" to="-32" dur="4s" repeatCount="indefinite"/>
-                    </line>
-                  );
-                })}
-              </svg>
+            <div className="p-4 md:p-6">
+              <DotMap />
             </div>
-
             {/* Legend */}
             <div className="flex items-center gap-5 px-5 py-3 border-t border-white/[0.06]">
               <div className="flex items-center gap-2">
@@ -271,16 +355,15 @@ export default function GlobalReach() {
                 <span className="text-[11px] text-white/40 font-medium">Active Depot / Operation</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-2.5 h-0.5 bg-[#38bdf8] opacity-40" style={{ borderTop: "1px dashed #38bdf8" }}/>
+                <div className="w-6 h-0 border-t border-dashed border-[#38bdf8]/40"/>
                 <span className="text-[11px] text-white/40 font-medium">Supply Lane</span>
               </div>
-              <span className="ml-auto text-[11px] text-white/25 uppercase tracking-widest">80+ Countries of Experience</span>
+              <span className="ml-auto text-[11px] text-white/25 uppercase tracking-widest hidden sm:inline">80+ Countries of Experience</span>
             </div>
           </div>
 
           {/* Stats + Regions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Stat blocks */}
             <div className="grid grid-cols-2 gap-3">
               {capabilities.map((c, i) => (
                 <div key={i}
@@ -295,7 +378,6 @@ export default function GlobalReach() {
               ))}
             </div>
 
-            {/* Regions */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {regions.map((r, i) => (
                 <div key={i}
